@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced QR Code Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom CSS for gradient background and animations */
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Applying a vibrant gradient background */
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            overflow: hidden; /* Hide overflow for star animations */
+        }
+
+        /* Keyframes for the floating effect on the QR code container */
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+
+        .floating-effect {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        /* Styles for the stars shower effect */
+        .stars-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Allow clicks to pass through */
+            overflow: hidden;
+            z-index: 1000; /* Ensure stars are on top */
+        }
+
+        .star {
+            position: absolute;
+            background-color: #fff;
+            border-radius: 50%;
+            opacity: 0;
+            animation: star-fall 2s ease-out forwards;
+        }
+
+        /* Keyframes for the star falling animation */
+        @keyframes star-fall {
+            0% {
+                transform: translateY(0) scale(0.5);
+                opacity: 0;
+            }
+            20% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(100vh) scale(1.2);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <div class="relative w-full max-w-md bg-white p-6 md:p-8 rounded-2xl shadow-2xl space-y-6 border border-gray-200">
+        <h1 class="text-3xl md:text-4xl font-extrabold text-center text-gray-800 mb-6">QR Code Generator</h1>
+
+        <div class="space-y-4">
+            <label for="qrInput" class="block text-sm font-medium text-gray-700">Enter Text or URL:</label>
+            <input type="text" id="qrInput" placeholder="e.g., https://example.com or Hello World!"
+                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 shadow-sm text-gray-800">
+
+            <label for="qrSize" class="block text-sm font-medium text-gray-700">Select Size:</label>
+            <select id="qrSize"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 shadow-sm text-gray-800">
+                <option value="100">100x100 px</option>
+                <option value="200" selected>200x200 px</option>
+                <option value="300">300x300 px</option>
+                <option value="400">400x400 px</option>
+            </select>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-4">
+            <button id="generateBtn"
+                    class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
+                Generate QR Code
+            </button>
+            <button id="downloadBtn" disabled
+                    class="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                Download QR Code
+            </button>
+        </div>
+
+        <div id="qrCodeContainer"
+             class="flex justify-center items-center p-4 bg-gray-50 rounded-lg shadow-inner floating-effect min-h-[150px] min-w-[150px]">
+            <p id="qrPlaceholder" class="text-gray-500 text-center">Your QR code will appear here.</p>
+            </div>
+    </div>
+
+    <div id="starsShower" class="stars-container"></div>
+
+    <script src="https://unpkg.com/qrcodejs@1.0.0/qrcode.min.js"></script>
+
+    <script>
+        // Get references to HTML elements
+        const qrInput = document.getElementById('qrInput');
+        const qrSize = document.getElementById('qrSize');
+        const generateBtn = document.getElementById('generateBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const qrCodeContainer = document.getElementById('qrCodeContainer');
+        const qrPlaceholder = document.getElementById('qrPlaceholder');
+        const starsShower = document.getElementById('starsShower');
+
+        let qrCodeInstance = null; // Variable to hold the QR code instance
+
+        /**
+         * Generates the QR code based on input and selected size.
+         */
+        function generateQrCode() {
+            const text = qrInput.value.trim();
+            const size = parseInt(qrSize.value, 10);
+
+            console.log("Attempting to generate QR Code...");
+            console.log("Input Text:", text);
+            console.log("Selected Size:", size);
+
+            // Clear previous QR code if it exists
+            qrCodeContainer.innerHTML = '';
+            qrCodeInstance = null; // Reset the instance
+            qrPlaceholder.style.display = 'none'; // Hide placeholder
+
+            if (text) {
+                // Check if QRCode library is loaded
+                if (typeof QRCode === 'undefined') {
+                    console.error("QRCode library is not loaded. Please check the network connection or the script URL.");
+                    qrPlaceholder.style.display = 'block';
+                    qrPlaceholder.textContent = 'QR Code library not loaded. Please refresh or check console for errors.';
+                    downloadBtn.disabled = true;
+                    return; // Exit the function early
+                }
+
+                try {
+                    // Initialize QR code instance
+                    qrCodeInstance = new QRCode(qrCodeContainer, {
+                        text: text,
+                        width: size,
+                        height: size,
+                        colorDark : "#000000",
+                        colorLight : "#ffffff",
+                        correctLevel : QRCode.CorrectLevel.H // High error correction
+                    });
+                    console.log("QR Code instance created successfully.");
+                    downloadBtn.disabled = false; // Enable download button
+                } catch (error) {
+                    console.error("Error generating QR code:", error);
+                    qrPlaceholder.style.display = 'block'; // Show placeholder on error
+                    qrPlaceholder.textContent = 'Error generating QR code. Please try again.';
+                    downloadBtn.disabled = true; // Disable download button
+                }
+            } else {
+                console.log("Input text is empty. Not generating QR code.");
+                qrPlaceholder.style.display = 'block'; // Show placeholder if input is empty
+                qrPlaceholder.textContent = 'Your QR code will appear here.'; // Reset placeholder text
+                downloadBtn.disabled = true; // Disable download button
+            }
+        }
+
+        /**
+         * Downloads the generated QR code as a PNG image.
+         */
+        function downloadQrCode() {
+            // Find the canvas element generated by qrcode.js
+            const canvas = qrCodeContainer.querySelector('canvas');
+
+            if (canvas) {
+                // Convert canvas to a data URL (PNG format)
+                const dataURL = canvas.toDataURL('image/png');
+
+                // Create a temporary anchor element
+                const a = document.createElement('a');
+                a.href = dataURL;
+                a.download = 'qrcode.png'; // Set the download filename
+
+                // Programmatically click the anchor to trigger download
+                document.body.appendChild(a); // Append to body to ensure it's in the DOM
+                a.click();
+                document.body.removeChild(a); // Clean up the temporary anchor
+
+                // Trigger the stars shower effect after download
+                triggerStarsShower();
+            } else {
+                console.error("No QR code canvas found to download.");
+                // Optionally, show a message to the user that no QR code is generated yet.
+            }
+        }
+
+        /**
+         * Triggers a visual stars shower celebration effect.
+         */
+        function triggerStarsShower() {
+            const numberOfStars = 30; // Number of stars to generate
+            starsShower.innerHTML = ''; // Clear previous stars
+
+            for (let i = 0; i < numberOfStars; i++) {
+                const star = document.createElement('div');
+                star.classList.add('star');
+
+                // Randomize star size
+                const size = Math.random() * 8 + 4; // 4px to 12px
+                star.style.width = `${size}px`;
+                star.style.height = `${size}px`;
+
+                // Randomize starting position (top of the screen)
+                star.style.left = `${Math.random() * 100}%`;
+                star.style.top = `${-size}px`; // Start slightly above the viewport
+
+                // Randomize animation delay and duration for a scattered effect
+                star.style.animationDelay = `${Math.random() * 1.5}s`;
+                star.style.animationDuration = `${Math.random() * 1.5 + 1.5}s`; // 1.5s to 3s
+
+                starsShower.appendChild(star);
+
+                // Remove the star element after its animation completes to clean up DOM
+                star.addEventListener('animationend', () => {
+                    star.remove();
+                });
+            }
+        }
+
+        // Event Listeners
+        generateBtn.addEventListener('click', generateQrCode);
+        downloadBtn.addEventListener('click', downloadQrCode);
+
+        // Initial generation on load if there's default text
+        document.addEventListener('DOMContentLoaded', () => {
+            // You can optionally pre-fill the input and generate a QR code on load
+            // qrInput.value = "https://www.google.com";
+            // generateQrCode();
+        });
+    </script>
+</body>
+</html>
